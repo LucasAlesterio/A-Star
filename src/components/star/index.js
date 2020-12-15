@@ -1,6 +1,9 @@
+// Lucas Alesterio Marques Vieira  11621ECP016
+//Importações
 import Heap from 'heap';
 import Instance from './instance';
 import Node from './node';
+//Declarações publicas
 var nextInstanceId = 1;
 const CLOSED_LIST = 0;
 const OPEN_LIST = 1;
@@ -14,24 +17,22 @@ Direction.BOTTOM_LEFT = 'BOTTOM_LEFT'
 Direction.LEFT = 'LEFT'
 Direction.TOP_LEFT = 'TOP_LEFT'
 
+//Classe AStar
 export default class AStar {
-    constructor() {
+    //Construtor da classe
+    constructor(diagonal,corner) {
             var STRAIGHT_COST = 1.0;
             var DIAGONAL_COST = 1.4;
-            var syncEnabled = false;
             var pointsToAvoid = {};
             var collisionGrid;
             var costMap = {};
-            var pointsToCost = {};
-            var directionalConditions = {};
-            var allowCornerCutting = true;
-            var iterationsSoFar;
+            var allowCornerCutting = corner;
             var instances = {};
             var instanceQueue = [];
             var iterationsPerCalculation = Number.MAX_VALUE;
             var acceptableTiles;
-            var diagonalsEnabled = false;
-            
+            var diagonalsEnabled = diagonal;
+            //Retorna o proximo "node"
             var coordinateToNode = function(instance, x, y, parent, cost) {
                 if (instance.nodeHash[y] !== undefined) {
                     if (instance.nodeHash[y][x] !== undefined) {
@@ -50,11 +51,11 @@ export default class AStar {
                 instance.nodeHash[y][x] = node;
                 return node;
             };
+            //Retorna distancia entre dois pontos
             var getDistance = function(x1,y1,x2,y2) {
                 var dx = 0;
                 var dy = 0; 
                 if (diagonalsEnabled) {
-                    // Octile distance
                     dx = Math.abs(x1 - x2);
                     dy = Math.abs(y1 - y2);
                     if (dx < dy) {
@@ -63,12 +64,12 @@ export default class AStar {
                         return DIAGONAL_COST * dy + dx;
                     }
                 } else {
-                    // Manhattan distance
                     dx = Math.abs(x1 - x2);
                     dy = Math.abs(y1 - y2);
                     return (dx + dy);
                 }
             };
+            // Teste para proximo "node"
             var checkAdjacentNode = function(instance, searchNode, x, y, cost) {
                 var adjacentCoordinateX = searchNode.x+x;
                 var adjacentCoordinateY = searchNode.y+y;
@@ -77,7 +78,6 @@ export default class AStar {
                     isTileWalkable(collisionGrid, acceptableTiles, adjacentCoordinateX, adjacentCoordinateY, searchNode)) {
                     var node = coordinateToNode(instance, adjacentCoordinateX,
                         adjacentCoordinateY, searchNode, cost);
-        
                     if (node.list === undefined) {
                         node.list = OPEN_LIST;
                         instance.openList.push(node);
@@ -88,45 +88,23 @@ export default class AStar {
                     }
                 }
             };
-            var isTileWalkable = function(collisionGrid, acceptableTiles, x, y, sourceNode) {
-                var directionalCondition = directionalConditions[y] && directionalConditions[y][x];
-                if (directionalCondition) {
-                    var direction = calculateDirection(sourceNode.x - x, sourceNode.y - y)
-                    var directionIncluded = function () {
-                        for (var i = 0; i < directionalCondition.length; i++) {
-                            if (directionalCondition[i] === direction) return true
-                        }
-                        return false
-                    }
-                    if (!directionIncluded()) return false
-                }
+            // Teste individual se o "node" esta livre
+            var isTileWalkable = function(collisionGrid, acceptableTiles, x, y) {
                 for (var i = 0; i < acceptableTiles.length; i++) {
                     if (collisionGrid[y][x] === acceptableTiles[i]) {
                         return true;
                     }
                 }
-        
                 return false;
             };
-            var calculateDirection = function (diffX, diffY) {
-                if (diffX === 0 && diffY === -1) return Direction.TOP
-                else if (diffX === 1 && diffY === -1) return Direction.TOP_RIGHT
-                else if (diffX === 1 && diffY === 0) return Direction.RIGHT
-                else if (diffX === 1 && diffY === 1) return Direction.BOTTOM_RIGHT
-                else if (diffX === 0 && diffY === 1) return Direction.BOTTOM
-                else if (diffX === -1 && diffY === 1) return Direction.BOTTOM_LEFT
-                else if (diffX === -1 && diffY === 0) return Direction.LEFT
-                else if (diffX === -1 && diffY === -1) return Direction.TOP_LEFT
-                throw new Error('These differences are not valid: ' + diffX + ', ' + diffY)
-            };
+            // Retorna o custo
             var getTileCost = function(x, y) {
-                return (pointsToCost[y] && pointsToCost[y][x]) || costMap[collisionGrid[y][x]]
+                return costMap[collisionGrid[y][x]];
             };
-
+            //Definindo matriz
             this.setGrid = function (grid) {
                 collisionGrid = grid;
-
-                //Setup cost map
+                //Definindo custo
                 for (var y = 0; y < collisionGrid.length; y++) {
                     for (var x = 0; x < collisionGrid[0].length; x++) {
                         if (!costMap[collisionGrid[y][x]]) {
@@ -135,50 +113,23 @@ export default class AStar {
                     }
                 }
             };
+            //Definindo os "nodes" livres
             this.setAcceptableTiles = function (tiles) {
                 if (tiles instanceof Array) {
-                    // Array
                     acceptableTiles = tiles;
                 } else if (!isNaN(parseFloat(tiles)) && isFinite(tiles)) {
-                    // Number
                     acceptableTiles = [tiles];
                 }
             };
             this.findPath = function (startX, startY, endX, endY, callback) {
-                // Wraps the callback for sync vs async logic
+                // Setando função de retorno
                 var callbackWrapper = function (result) {
-                    if (syncEnabled) {
+                    setTimeout(function () {
                         callback(result);
-                    } else {
-                        setTimeout(function () {
-                            callback(result);
-                        });
-                    }
+                    });
                 };
 
-                // No acceptable tiles were set
-                if (acceptableTiles === undefined) {
-                    throw new Error("You can't set a path without first calling setAcceptableTiles() on EasyStar.");
-                }
-                // No grid was set
-                if (collisionGrid === undefined) {
-                    throw new Error("You can't set a path without first calling setGrid() on EasyStar.");
-                }
-
-                // Start or endpoint outside of scope.
-                if (startX < 0 || startY < 0 || endX < 0 || endY < 0 ||
-                    startX > collisionGrid[0].length - 1 || startY > collisionGrid.length - 1 ||
-                    endX > collisionGrid[0].length - 1 || endY > collisionGrid.length - 1) {
-                    throw new Error("Your start or end point is outside the scope of your grid.");
-                }
-
-                // Start and end are the same tile.
-                if (startX === endX && startY === endY) {
-                    callbackWrapper([]);
-                    return;
-                }
-
-                // End point is not an acceptable tile.
+                // Percorre o array de "tiles" livres testando se é aceitavel ou não
                 var endTile = collisionGrid[endY][endX];
                 var isAcceptable = false;
                 for (var i = 0; i < acceptableTiles.length; i++) {
@@ -187,59 +138,51 @@ export default class AStar {
                         break;
                     }
                 }
-
+                // Caso não seja aceitavél retorna null na função de retorno
                 if (isAcceptable === false) {
                     callbackWrapper(null);
                     return;
                 }
-
-                // Create the instance
+                // Criando uma instancia
                 var instance = new Instance();
+                // Criando uma heap para calculo do melhor "palpite" de menor distacia
                 instance.openList = new Heap(function (nodeA, nodeB) {
                     return nodeA.bestGuessDistance() - nodeB.bestGuessDistance();
                 });
-                instance.isDoneCalculating = false;
+                //setando condições iniciais
                 instance.nodeHash = {};
                 instance.startX = startX;
                 instance.startY = startY;
                 instance.endX = endX;
                 instance.endY = endY;
                 instance.callback = callbackWrapper;
-
                 instance.openList.push(coordinateToNode(instance, instance.startX,
                     instance.startY, null, STRAIGHT_COST));
-
                 var instanceId = nextInstanceId++;
                 instances[instanceId] = instance;
                 instanceQueue.push(instanceId);
                 return instanceId;
             };
+            // Definindo o numero mázimo de interações por calculo
             this.setIterationsPerCalculation = function(iterations) {
                 iterationsPerCalculation = iterations;
             };
+            // Calcula menor rota
             this.calculate = function() {
-                if (instanceQueue.length === 0 || collisionGrid === undefined || acceptableTiles === undefined) {
-                    return;
-                }
-                for (iterationsSoFar = 0; iterationsSoFar < iterationsPerCalculation; iterationsSoFar++) {
+                for (let iterationsSoFar = 0; iterationsSoFar < iterationsPerCalculation; iterationsSoFar++) {
                     if (instanceQueue.length === 0) {
                         return;
-                    }
-        
-                    if (syncEnabled) {
-                        // If this is a sync instance, we want to make sure that it calculates synchronously.
-                        iterationsSoFar = 0;
                     }
         
                     var instanceId = instanceQueue[0];
                     var instance = instances[instanceId];
                     if (typeof instance == 'undefined') {
-                        // This instance was cancelled
+                        // Instancia cancelada
                         instanceQueue.shift();
                         continue;
                     }
         
-                    // Couldn't find a path.
+                    // Caminho não encontrado
                     if (instance.openList.size() === 0) {
                         instance.callback(null);
                         delete instances[instanceId];
@@ -249,7 +192,7 @@ export default class AStar {
         
                     var searchNode = instance.openList.pop();
         
-                    // Handles the case where we have found the destination
+                    // Teste para quando atingir o obejetivo
                     if (instance.endX === searchNode.x && instance.endY === searchNode.y) {
                         var path = [];
                         path.push({x: searchNode.x, y: searchNode.y});
@@ -265,9 +208,9 @@ export default class AStar {
                         instanceQueue.shift();
                         continue;
                     }
-        
+
                     searchNode.list = CLOSED_LIST;
-        
+                    //Testes para a possivel direção
                     if (searchNode.y > 0) {
                         checkAdjacentNode(instance, searchNode,
                             0, -1, STRAIGHT_COST * getTileCost(searchNode.x, searchNode.y-1));
@@ -284,6 +227,7 @@ export default class AStar {
                         checkAdjacentNode(instance, searchNode,
                             -1, 0, STRAIGHT_COST * getTileCost(searchNode.x-1, searchNode.y));
                     }
+                    //Testes para as diagonais caso esteja ativada
                     if (diagonalsEnabled) {
                         if (searchNode.x > 0 && searchNode.y > 0) {
         

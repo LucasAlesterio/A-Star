@@ -1,8 +1,5 @@
-/**
- * Represents a single instance of EasyStar.
- * A path that is in the queue to eventually be found.
-*/
-    export default class Instance{
+// Lucas Alesterio Marques Vieira  11621ECP016
+export default class Instance{
     constructor() {
         this.pointsToAvoid = {};
         this.startX = 0;
